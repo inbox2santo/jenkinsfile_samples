@@ -1,0 +1,49 @@
+pipeline {
+    agent any
+
+    tools {
+        maven 'Maven 3.6.3'
+        jdk 'JDK 11'
+    }
+
+    environment {
+        GIT_URL = 'https://github.com/your-repo/your-project.git'
+        GIT_BRANCH = 'main'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'your-credentials-id', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD')]) {
+                        sh '''
+                        git config --global credential.helper store
+                        git config --global user.name "$GIT_USERNAME"
+                        git config --global user.password "$GIT_PASSWORD"
+                        git clone --branch $GIT_BRANCH https://$GIT_USERNAME:$GIT_PASSWORD@$GIT_URL
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                sh 'mvn clean install'
+            }
+        }
+        
+        stage('Unit Test') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+            junit 'target/surefire-reports/*.xml'
+        }
+    }
+}
